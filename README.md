@@ -11,12 +11,12 @@
   ```bash
   git clone https://github.com/vakonquipo/discord-automatic-year-bot.git
   cd discord-automatic-year-bot
-2. Δημιουργία και ενεργοποίηση virtual environment (Windows PowerShell)
+2. Δημιουργία και ενεργοποίηση virtual environment (Windows PowerShell):
   python -m venv venv
   .\venv\Scripts\Activate.ps1
-3. Εγκατάσταση απαιτήσεων
+3. Εγκατάσταση απαιτήσεων:
   pip install -r requirements.txt
-4. Δημιουργία αρχείου .env με το Discord token
+4. Δημιουργία αρχείου .env με το Discord token:
   DISCORD_TOKEN=your_discord_bot_token_here
-5. Εκτέλεση
+5. Εκτέλεση:
   python bot.py
