@@ -5,19 +5,27 @@ from discord.ext import commands, tasks
 from discord import app_commands
 from datetime import datetime
 
-from dotenv import load_dotenv
-import os
-import discord
-from discord.ext import commands, tasks
-from discord import app_commands
-from datetime import datetime
-
-# Φόρτωση μεταβλητών περιβάλλοντος
+# Φόρτωση μεταβλητών περιβάλλοντος από το .env
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path)
 
+# Πάρε τις μεταβλητές περιβάλλοντος
 TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD_ID = int(os.getenv("GUILD_ID"))
+guild_id_raw = os.getenv("GUILD_ID")
+
+print(f"DEBUG: DISCORD_TOKEN: {'Found' if TOKEN else 'Missing'}")
+print(f"DEBUG: GUILD_ID raw: {guild_id_raw}")
+
+if not TOKEN:
+    raise RuntimeError("Το DISCORD_TOKEN δεν βρέθηκε στο .env ή στις μεταβλητές περιβάλλοντος.")
+
+if not guild_id_raw:
+    raise RuntimeError("Το GUILD_ID δεν βρέθηκε στο .env ή στις μεταβλητές περιβάλλοντος.")
+
+try:
+    GUILD_ID = int(guild_id_raw)
+except ValueError:
+    raise RuntimeError("Η μεταβλητή GUILD_ID δεν είναι έγκυρος ακέραιος αριθμός.")
 
 intents = discord.Intents.default()
 intents.members = True
@@ -38,7 +46,6 @@ YEARS = {
 
 PIN_CHANNEL_NAME = "🎓-επιλογή-έτους"
 
-# Το καρφιτσωμένο μήνυμα με τις οδηγίες
 PINNED_MESSAGE = (
     "**Οδηγίες για επιλογή έτους φοιτητή**\n\n"
     "	Επιλέγετε το ακαδημαϊκό έτος που είχατε μέχρι και την εξεταστική του Ιουνίου 2025.\n"
@@ -66,26 +73,22 @@ async def send_or_pin_instructions():
         print(f"Δεν βρέθηκε το κανάλι '{PIN_CHANNEL_NAME}'")
         return
 
-    # Έλεγχος αν υπάρχει ήδη καρφιτσωμένο μήνυμα με το κείμενο μας
     pinned_messages = await channel.pins()
     for msg in pinned_messages:
         if msg.content == PINNED_MESSAGE:
             print("Το μήνυμα οδηγιών είναι ήδη καρφιτσωμένο.")
             return
 
-    # Στέλνουμε το μήνυμα και το καρφιτσώνουμε
     message = await channel.send(PINNED_MESSAGE)
     await message.pin()
     print(f"Το μήνυμα οδηγιών στάλθηκε και καρφιτσωθηκε στο κανάλι '{PIN_CHANNEL_NAME}'.")
 
-# Slash command: /set_year
 @tree.command(name="set_year", description="Διάλεξε το έτος σου (μία φορά)", guild=discord.Object(id=GUILD_ID))
 @app_commands.describe(year="Το έτος στο οποίο ήσουν το ακαδημαϊκό έτος μέχρι Ιούνιο 2025")
 async def set_year(interaction: discord.Interaction, year: str):
     member = interaction.user
     guild = interaction.guild
 
-    # Έλεγχος αν έχει ήδη ρόλο έτους
     if any(role.name in YEARS.values() for role in member.roles):
         await interaction.response.send_message("Έχεις ήδη διαλέξει έτος. Μόνο admin μπορεί να το αλλάξει.", ephemeral=True)
         return
@@ -102,7 +105,6 @@ async def set_year(interaction: discord.Interaction, year: str):
     await member.add_roles(role)
     await interaction.response.send_message(f"Επιλέχθηκε το **{role_name}**.", ephemeral=True)
 
-# Admin command: /admin_change_year
 @tree.command(name="admin_change_year", description="Admin: Αλλαγή έτους χρήστη", guild=discord.Object(id=GUILD_ID))
 @app_commands.describe(user="Ο χρήστης", year="Νέο έτος")
 async def admin_change_year(interaction: discord.Interaction, user: discord.Member, year: str):
@@ -114,7 +116,6 @@ async def admin_change_year(interaction: discord.Interaction, user: discord.Memb
         await interaction.response.send_message("Μη έγκυρη επιλογή.", ephemeral=True)
         return
 
-    # Αφαίρεση παλιών ρόλων
     await user.remove_roles(*[r for r in user.roles if r.name in YEARS.values()])
     new_role = discord.utils.get(user.guild.roles, name=YEARS[year])
     if not new_role:
@@ -123,7 +124,6 @@ async def admin_change_year(interaction: discord.Interaction, user: discord.Memb
 
     await interaction.response.send_message(f"Ο χρήστης {user.mention} τώρα έχει τον ρόλο **{YEARS[year]}**.")
 
-# Αυτόματη προαγωγή κάθε 1 Οκτωβρίου
 @tasks.loop(hours=24)
 async def promote_years():
     now = datetime.utcnow()
@@ -141,7 +141,7 @@ async def promote_years():
                     if not next_role:
                         next_role = await guild.create_role(name=f"{i+1}ο έτος")
                     await member.add_roles(next_role)
-            # Προαγωγή από "Θα γίνω πρωτοετής" στο 1ο έτος
+
             future_role = discord.utils.get(guild.roles, name=YEARS["0"])
             role_1 = discord.utils.get(guild.roles, name=YEARS["1"])
             if future_role in member.roles:
